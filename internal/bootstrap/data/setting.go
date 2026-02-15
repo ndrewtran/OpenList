@@ -110,6 +110,7 @@ func InitialSettings() []model.SettingItem {
 		{Key: conf.Logo, Value: "https://res.oplist.org/logo/logo.svg", MigrationValue: "https://cdn.oplist.org/gh/OpenListTeam/Logo@main/logo.svg", Type: conf.TypeText, Group: model.STYLE},
 		{Key: conf.Favicon, Value: "https://res.oplist.org/logo/logo.svg", MigrationValue: "https://cdn.oplist.org/gh/OpenListTeam/Logo@main/logo.svg", Type: conf.TypeString, Group: model.STYLE},
 		{Key: conf.MainColor, Value: "#1890ff", Type: conf.TypeString, Group: model.STYLE},
+		{Key: conf.DefaultViewMode, Value: "list", Type: conf.TypeSelect, Options: "list,grid", Group: model.STYLE, Flag: model.PUBLIC},
 		{Key: "home_icon", Value: "🏠", Type: conf.TypeString, Group: model.STYLE},
 		{Key: "share_icon", Value: "🎁", Type: conf.TypeString, Group: model.STYLE},
 		{Key: "home_container", Value: "max_980px", Type: conf.TypeSelect, Options: "max_980px,hope_container", Group: model.STYLE},

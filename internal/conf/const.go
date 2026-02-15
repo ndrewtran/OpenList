@@ -20,6 +20,7 @@ const (
 	Logo                           = "logo" // multi-lines text, L1: light, EOL: dark
 	Favicon                        = "favicon"
 	MainColor                      = "main_color"
+	DefaultViewMode                = "default_view_mode"
 	HideStorageDetails             = "hide_storage_details"
 	HideStorageDetailsInManagePage = "hide_storage_details_in_manage_page"
 
