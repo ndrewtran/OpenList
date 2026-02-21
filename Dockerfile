@@ -8,7 +8,7 @@ RUN apk add --no-cache bash curl jq gcc git go musl-dev
 COPY go.mod go.sum ./
 RUN go mod download
 COPY ./ ./
-RUN bash build.sh release docker
+RUN sed -i 's/\r$//' build.sh && bash build.sh release docker
 
 FROM openlistteam/openlist-base-image:${BASE_IMAGE_TAG}
 LABEL MAINTAINER="OpenList"
@@ -26,6 +26,7 @@ RUN addgroup -g ${GID} ${USER} && \
 
 COPY --from=builder --chmod=755 --chown=${UID}:${GID} /app/bin/openlist ./
 COPY --chmod=755 --chown=${UID}:${GID} entrypoint.sh /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh
 
 USER ${USER}
 RUN /entrypoint.sh version
