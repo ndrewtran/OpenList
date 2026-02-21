@@ -114,6 +114,7 @@ func UpdateIndex() {
 	customizeHead := setting.GetStr(conf.CustomizeHead)
 	customizeBody := setting.GetStr(conf.CustomizeBody)
 	mainColor := setting.GetStr(conf.MainColor)
+	defaultViewMode := setting.GetStr(conf.DefaultViewMode, "list")
 	utils.Log.Debug("Applying replacements for default pages...")
 	replaceMap1 := map[string]string{
 		"https://res.oplist.org/logo/logo.svg": favicon,
@@ -123,8 +124,14 @@ func UpdateIndex() {
 	}
 	conf.ManageHtml = replaceStrings(conf.RawIndexHtml, replaceMap1)
 	utils.Log.Debug("Applying replacements for manage pages...")
+	// Inject a script to apply the admin-configured default view mode to localStorage
+	// before the frontend app initialises, so it reads the correct default.
+	viewModeScript := fmt.Sprintf(
+		`<script>localStorage.setItem('global_default_layout','%s');</script>`,
+		defaultViewMode,
+	)
 	replaceMap2 := map[string]string{
-		"<!-- customize head -->": customizeHead,
+		"<!-- customize head -->": viewModeScript + customizeHead,
 		"<!-- customize body -->": customizeBody,
 	}
 	conf.IndexHtml = replaceStrings(conf.ManageHtml, replaceMap2)
