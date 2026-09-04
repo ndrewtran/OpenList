@@ -22,8 +22,8 @@ env:
   BUILD_CACHE_SCOPE: openlist-dockerhub-aio
 
 jobs:
-  validate:
-    name: Validate Docker image
+  docker:
+    name: Validate and publish Docker image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -38,7 +38,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Docker image
+      - name: Validate Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -54,31 +54,15 @@ jobs:
           cache-from: type=gha,scope=${{ env.BUILD_CACHE_SCOPE }}
           cache-to: type=gha,mode=max,scope=${{ env.BUILD_CACHE_SCOPE }}
 
-  publish:
-    name: Publish Docker image
-    needs: validate
-    if: github.repository == 'ndrewtran/OpenList' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
       - name: Log in to Docker Hub
+        if: github.repository == 'ndrewtran/OpenList' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         uses: docker/login-action@v3
         with:
           username: aqqtran
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
       - name: Docker metadata
+        if: github.repository == 'ndrewtran/OpenList' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         id: meta
         uses: docker/metadata-action@v5
         with:
@@ -90,6 +74,7 @@ jobs:
             latest=false
 
       - name: Build and push Docker image
+        if: github.repository == 'ndrewtran/OpenList' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         uses: docker/build-push-action@v6
         with:
           context: .
