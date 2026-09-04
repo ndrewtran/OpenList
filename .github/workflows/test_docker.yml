@@ -28,6 +28,7 @@ env:
 
 jobs:
   build_binary:
+    if: github.repository == 'OpenListTeam/OpenList'
     name: Build Binaries for Docker Release (Beta)
     runs-on: ubuntu-latest
     steps:
@@ -68,6 +69,7 @@ jobs:
             !build/musl-libs/**
 
   release_docker:
+    if: github.repository == 'OpenListTeam/OpenList'
     needs: build_binary
     name: Release Docker image (Beta)
     runs-on: ubuntu-latest

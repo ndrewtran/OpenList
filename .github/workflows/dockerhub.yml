@@ -1,0 +1,162 @@
+name: Docker Hub (AIO)
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_NAME: docker.io/aqqtran/openlist
+  BUILD_CACHE_SCOPE: openlist-dockerhub-aio
+  PUBLISH_IMAGE: ${{ github.repository == 'ndrewtran/OpenList' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+  DOCKER_BUILD_RECORD_UPLOAD: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform }} image
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+            platform_pair: linux-amd64
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+            platform_pair: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+
+      - name: Log in to Docker Hub
+        if: env.PUBLISH_IMAGE == 'true'
+        uses: docker/login-action@v3
+        with:
+          username: aqqtran
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker image
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: ${{ matrix.platform }}
+          load: false
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=${{ env.PUBLISH_IMAGE }}
+          build-args: |
+            BASE_IMAGE_TAG=aio
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          cache-from: type=gha,scope=${{ env.BUILD_CACHE_SCOPE }}-${{ matrix.platform_pair }}
+          cache-to: type=gha,ignore-error=true,mode=max,scope=${{ env.BUILD_CACHE_SCOPE }}-${{ matrix.platform_pair }}
+
+      - name: Export digest
+        if: env.PUBLISH_IMAGE == 'true'
+        run: |
+          mkdir -p "${{ runner.temp }}/digests"
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ runner.temp }}/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        if: env.PUBLISH_IMAGE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-digest-${{ matrix.platform_pair }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 1
+
+  merge:
+    name: Publish multi-platform image
+    needs: build
+    if: github.repository == 'ndrewtran/OpenList' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          pattern: image-digest-*
+          path: ${{ runner.temp }}/digests
+          merge-multiple: true
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: aqqtran
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest-aio
+            type=raw,value=commit-${{ github.sha }}-run-${{ github.run_id }}-${{ github.run_attempt }}
+          flavor: |
+            latest=false
+
+      - name: Create and push multi-platform manifest
+        working-directory: ${{ runner.temp }}/digests
+        env:
+          DOCKER_METADATA_JSON: ${{ steps.meta.outputs.json }}
+        run: |
+          mapfile -t digests < <(find . -maxdepth 1 -type f -printf '%f\n' | sort)
+          if (( ${#digests[@]} != 2 )); then
+            printf 'Expected exactly two platform digest markers, found %s:\n' "${#digests[@]}" >&2
+            printf '  %s\n' "${digests[@]}" >&2
+            exit 1
+          fi
+          for digest in "${digests[@]}"; do
+            if [[ ! "$digest" =~ ^[0-9a-f]{64}$ ]]; then
+              printf 'Invalid digest marker: %s\n' "$digest" >&2
+              exit 1
+            fi
+          done
+
+          mapfile -t tags < <(jq -r '.tags[]' <<< "$DOCKER_METADATA_JSON")
+          tag_args=()
+          for tag in "${tags[@]}"; do
+            tag_args+=("-t" "$tag")
+          done
+
+          digest_args=()
+          for digest in "${digests[@]}"; do
+            digest_args+=("${{ env.IMAGE_NAME }}@sha256:${digest}")
+          done
+
+          docker buildx imagetools create "${tag_args[@]}" "${digest_args[@]}"
+
+      - name: Inspect published image
+        run: docker buildx imagetools inspect "${{ env.IMAGE_NAME }}:latest-aio"
