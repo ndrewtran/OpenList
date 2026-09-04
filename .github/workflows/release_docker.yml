@@ -39,6 +39,7 @@ permissions:
 
 jobs:
   build_binary:
+    if: github.repository == 'OpenListTeam/OpenList'
     name: Build Binaries for Docker Release
     runs-on: ubuntu-latest
     steps:
@@ -79,6 +80,7 @@ jobs:
             !build/musl-libs/**
 
   build_binary_lite:
+    if: github.repository == 'OpenListTeam/OpenList'
     name: Build Binaries for Docker Release (Lite)
     runs-on: ubuntu-latest
     steps:
@@ -119,6 +121,7 @@ jobs:
             !build/musl-libs/**
 
   release_docker:
+    if: github.repository == 'OpenListTeam/OpenList'
     needs: build_binary
     name: Release Docker image
     runs-on: ubuntu-latest
@@ -203,6 +206,7 @@ jobs:
           platforms: ${{ env.RELEASE_PLATFORMS }}
 
   release_docker_lite:
+    if: github.repository == 'OpenListTeam/OpenList'
     needs: build_binary_lite
     name: Release Docker image (Lite)
     runs-on: ubuntu-latest
